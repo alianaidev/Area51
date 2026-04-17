@@ -1,61 +1,48 @@
 #!/bin/bash
 set -euo pipefail
 
-# Only run in remote (web) environments
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+cd "${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
-# Node.js / npm
-if [ -f "$PROJECT_DIR/package.json" ]; then
+# Node.js
+if [ -f "package.json" ]; then
   echo "Installing Node.js dependencies..."
-  cd "$PROJECT_DIR"
-  npm install
+  npm install --quiet
 fi
 
-# Python / pip
-if [ -f "$PROJECT_DIR/requirements.txt" ]; then
-  echo "Installing Python dependencies (requirements.txt)..."
-  pip install -r "$PROJECT_DIR/requirements.txt" --quiet
-fi
-
-if [ -f "$PROJECT_DIR/requirements-dev.txt" ]; then
-  echo "Installing Python dev dependencies..."
-  pip install -r "$PROJECT_DIR/requirements-dev.txt" --quiet
-fi
-
-# Python / pyproject.toml (Poetry or PEP 517)
-if [ -f "$PROJECT_DIR/pyproject.toml" ]; then
-  cd "$PROJECT_DIR"
-  if command -v poetry &>/dev/null && [ -f "$PROJECT_DIR/poetry.lock" ]; then
+# Python — pyproject.toml takes precedence; fall back to requirements.txt
+if [ -f "pyproject.toml" ]; then
+  if command -v poetry >/dev/null 2>&1 && [ -f "poetry.lock" ]; then
     echo "Installing Python dependencies (Poetry)..."
     poetry install --no-interaction
   else
     echo "Installing Python dependencies (pip)..."
-    pip install -e ".[dev]" --quiet 2>/dev/null || pip install -e . --quiet
+    pip install -e ".[dev]" --quiet || pip install -e . --quiet
   fi
+elif [ -f "requirements.txt" ]; then
+  echo "Installing Python dependencies..."
+  pip install -r requirements.txt --quiet
+  [ -f "requirements-dev.txt" ] && pip install -r requirements-dev.txt --quiet
 fi
 
-# Ruby / Bundler
-if [ -f "$PROJECT_DIR/Gemfile" ]; then
+# Ruby
+if [ -f "Gemfile" ]; then
   echo "Installing Ruby dependencies..."
-  cd "$PROJECT_DIR"
   bundle install --quiet
 fi
 
 # Go
-if [ -f "$PROJECT_DIR/go.mod" ]; then
+if [ -f "go.mod" ]; then
   echo "Installing Go dependencies..."
-  cd "$PROJECT_DIR"
   go mod download
 fi
 
-# Rust / Cargo
-if [ -f "$PROJECT_DIR/Cargo.toml" ]; then
-  echo "Fetching Rust dependencies..."
-  cd "$PROJECT_DIR"
+# Rust
+if [ -f "Cargo.toml" ]; then
+  echo "Installing Rust dependencies..."
   cargo fetch
 fi
 
